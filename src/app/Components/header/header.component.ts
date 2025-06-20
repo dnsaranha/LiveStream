@@ -1,13 +1,12 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { mergeMap } from 'rxjs';
 import { FilmeLista } from 'src/app/Interfaces/FilmeLista';
 import { Results } from 'src/app/Interfaces/Results';
 import { User } from 'src/app/Interfaces/user';
-import { Usuario } from 'src/app/Interfaces/usuario';
 import { ApiFilmesService } from 'src/app/Services/api-filmes.service';
 import { AuthService } from 'src/app/Services/auth.service';
 import { FavoritosService } from 'src/app/Services/favoritos.service';
+import { LocalStorageService } from 'src/app/Services/local-storage.service';
 import { NotificationService } from 'src/app/Services/notificacao.service';
 import { SalvosService } from 'src/app/Services/salvos.service';
 
@@ -24,21 +23,16 @@ export class HeaderComponent implements OnInit {
     private notificacao: NotificationService,
     private salvosService: SalvosService,
     private authService: AuthService,
+    private localStorageService: LocalStorageService,
     private router: Router
   ) { }
   
-  /* usuario: any = {
-    displayName: '',
-    photoURL: '',
-  } */
-
-  usuarioPhoto: any = localStorage.getItem('user-photo')
-  usuarioName: any = localStorage.getItem('user-name')
+  usuarioPhoto: any = ''
+  usuarioName: any = ''
   usuario: any
 
   ngOnInit(): void {
     this.getUser()
-
   }
 
   listaPesquisa!: Results
@@ -49,7 +43,16 @@ export class HeaderComponent implements OnInit {
   filmeJaAdicionado: boolean = false
   filmeJaSalvo: boolean = false
   
-  avatares: string[] = ['/assets/img/1000_F_477056624_XAKvgSV5jgHHDEOyoyBAuOuPBJYySzHR (2).jpg','/assets/img/1000_F_477056624_XAKvgSV5jgHHDEOyoyBAuOuPBJYySzHR (3).jpg', '/assets/img/1000_F_477056624_XAKvgSV5jgHHDEOyoyBAuOuPBJYySzHR (4).jpg', '/assets/img/1000_F_477056624_XAKvgSV5jgHHDEOyoyBAuOuPBJYySzHR (5).jpg', '/assets/img/1000_F_477056624_XAKvgSV5jgHHDEOyoyBAuOuPBJYySzHR (6).jpg', '/assets/img/1000_F_477056624_XAKvgSV5jgHHDEOyoyBAuOuPBJYySzHR (7).jpg', '/assets/img/1000_F_477056624_XAKvgSV5jgHHDEOyoyBAuOuPBJYySzHR (8).jpg', '/assets/img/1000_F_477056624_XAKvgSV5jgHHDEOyoyBAuOuPBJYySzHR (9).jpg']
+  avatares: string[] = [
+    '/assets/img/1000_F_477056624_XAKvgSV5jgHHDEOyoyBAuOuPBJYySzHR (2).jpg',
+    '/assets/img/1000_F_477056624_XAKvgSV5jgHHDEOyoyBAuOuPBJYySzHR (3).jpg', 
+    '/assets/img/1000_F_477056624_XAKvgSV5jgHHDEOyoyBAuOuPBJYySzHR (4).jpg', 
+    '/assets/img/1000_F_477056624_XAKvgSV5jgHHDEOyoyBAuOuPBJYySzHR (5).jpg', 
+    '/assets/img/1000_F_477056624_XAKvgSV5jgHHDEOyoyBAuOuPBJYySzHR (6).jpg', 
+    '/assets/img/1000_F_477056624_XAKvgSV5jgHHDEOyoyBAuOuPBJYySzHR (7).jpg', 
+    '/assets/img/1000_F_477056624_XAKvgSV5jgHHDEOyoyBAuOuPBJYySzHR (8).jpg', 
+    '/assets/img/1000_F_477056624_XAKvgSV5jgHHDEOyoyBAuOuPBJYySzHR (9).jpg'
+  ]
 
   pesquisar(pesquisa: string) {
     this.filmeService.filtrarFilmes(pesquisa).subscribe(
@@ -63,7 +66,9 @@ export class HeaderComponent implements OnInit {
   }
 
   limparPesquisa() {
-    this.listaPesquisa.results = []
+    if (this.listaPesquisa) {
+      this.listaPesquisa.results = []
+    }
     this.pesquisa = false
     this.nomeFilme = ''
   }
@@ -78,10 +83,12 @@ export class HeaderComponent implements OnInit {
 
     if (this.filmeJaAdicionado) {
       this.notificacao.showmessage("Ops! Filme já consta na lista de favoritos!")
+      this.filmeJaAdicionado = false
     } else {
       this.favoritosService.adicionarFavorito(filmeFavorito).subscribe(
         (resposta) => {
           this.notificacao.showmessage("Filme inserido na lista de favoritos!")
+          this.listarFavoritos()
         }
       )
     }
@@ -103,7 +110,6 @@ export class HeaderComponent implements OnInit {
               listaFilme.isFavorite = true
             }
           }
-
         }
       })
   }
@@ -118,10 +124,12 @@ export class HeaderComponent implements OnInit {
 
     if (this.filmeJaSalvo) {
       this.notificacao.showmessage("Ops! Filme já consta na lista de assistir depois!")
+      this.filmeJaSalvo = false
     } else {
       this.salvosService.adicionarFilme(filmeSalvo).subscribe(
         (resposta) => {
           this.notificacao.showmessage("Filme inserido na lista!")
+          this.listarSalvos()
         }
       )
     }
@@ -143,39 +151,33 @@ export class HeaderComponent implements OnInit {
               listaFilme.isSave = true
             }
           }
-
         }
       })
   }
 
   public getUser(): void {
-    this.authService.listarUsuarios().subscribe(resposta => {
-      this.authService.getCurrentUser().subscribe(resp => {
-        resposta.map((user: User) => {
-          if(resp?.email == user.email){
-            this.usuarioName = user.displayName
-            this.usuarioPhoto = user.photoURL
-            this.usuario = user
-          }
-        })        
-      })     
+    this.authService.getCurrentUser().subscribe(user => {
+      if (user) {
+        this.usuarioName = user.displayName
+        this.usuarioPhoto = user.photoURL
+        this.usuario = user
+      }
     })
   }
 
   public mudarAvatar(avatar: string): void {
     this.usuarioPhoto = avatar
-    this.usuario.photoURL = avatar
-    localStorage.removeItem('user-photo');
-    localStorage.setItem("user-photo", avatar)
-    this.authService.editarUsuario(this.usuario).subscribe()
+    if (this.usuario) {
+      this.usuario.photoURL = avatar
+      this.localStorageService.updateUser({ photoURL: avatar })
+    }
   }
 
   public logout(): void {
     this.authService.logout().subscribe(() => {
       this.notificacao.showmessage("Até logo!")
-      this.router.navigate(["/login"])
-    }
-    )
+      // In local mode, we just refresh the page or stay on the same page
+      window.location.reload()
+    })
   }
-
 }

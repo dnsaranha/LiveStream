@@ -1,16 +1,8 @@
 import { Injectable } from '@angular/core';
-import { AngularFireAuth } from '@angular/fire/compat/auth';
-import { catchError, EMPTY, from, map, Observable, tap } from 'rxjs';
-import { GoogleAuthProvider, getAuth, updateProfile } from 'firebase/auth';
-import { NotificationService } from './notificacao.service';
+import { Observable, of } from 'rxjs';
 import { User } from '../Interfaces/user';
-import { ApiFilmesService } from './api-filmes.service';
-import { Token } from '../Interfaces/token';
-import { Router } from '@angular/router';
-import { AngularFirestore } from '@angular/fire/compat/firestore';
-import { Usuario } from '../Interfaces/usuario';
-
-
+import { LocalStorageService } from './local-storage.service';
+import { NotificationService } from './notificacao.service';
 
 @Injectable({
   providedIn: 'root'
@@ -18,181 +10,33 @@ import { Usuario } from '../Interfaces/usuario';
 export class AuthService {
 
   constructor(
-    private firebaseAuth: AngularFireAuth,
-    private firestore: AngularFirestore,
-    private notification: NotificationService,
-    private apiTMDB: ApiFilmesService,
-    private router: Router
+    private localStorageService: LocalStorageService,
+    private notification: NotificationService
   ) { }
 
+  public getCurrentUser(): Observable<User | null> {
+    return of(this.localStorageService.getCurrentUser());
+  }
 
-  public autenticarPeloGoogle(): Observable<any> {
-    const provider = new GoogleAuthProvider()
-    const promise = this.firebaseAuth.signInWithPopup(provider)
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (user != null) {
-      const usuario= {
-        displayName: user.displayName,
-        email: user.email,
-        photoURL: user.photoURL,
-        uid: user.uid
-      }
-      let usuarioJaExiste: boolean = false
-      this.listarUsuarios().subscribe(listaUsuarios => {
-        listaUsuarios.map((usuario: User) => {
-          if (usuario.email == user?.email) {
-            usuarioJaExiste = true
-          }
-        })
-        if (usuarioJaExiste == false) {
-          this.salvarUsuario(usuario)
-        }
-      })
+  public listarUsuarios(): Observable<User[]> {
+    const currentUser = this.localStorageService.getCurrentUser();
+    return of(currentUser ? [currentUser] : []);
+  }
+
+  public editarUsuario(user: User): Observable<any> {
+    try {
+      this.localStorageService.updateUser(user);
+      return of({ success: true });
+    } catch (error) {
+      this.notification.showmessage("Erro ao editar usuário");
+      console.error(error);
+      return of({ success: false });
     }
-    /*  if(this.token.request_token != ''){
-       this.apiTMDB.createSession(this.token).subscribe(resposta => {
-         localStorage.setItem('session', resposta.session_id)
-         this.notification.showmessage("Bem vindo(a)!")   
-       })
-     }else{
-       this.apiTMDB.autenticarUsuarioPorToken().subscribe(resposta => {
-         this.token = resposta
-         window.open('https://www.themoviedb.org/authenticate/' + this.token.request_token)
-         localStorage.setItem('token', this.token.request_token)
-         
-       })
-     } */
-
-    return from(promise).pipe(
-      catchError(error => {
-        this.notification.showmessage("Erro ao autenticar com o Google!")
-        console.error(error)
-        return EMPTY
-      })
-    )
   }
 
-  public salvarUsuario(usuario: Usuario): Observable<any> {
-    const promise = this.firestore.collection('users').add({
-      uidUser:localStorage.getItem('uidUser'),
-        ...usuario
-    })
-    return from(promise).pipe(
-      catchError(error => {
-        console.error(error)
-        this.notification.showmessage("Erro ao salvar usuário")
-        return EMPTY
-      })
-    )
+  public logout(): Observable<any> {
+    // In a local-only app, we don't actually log out
+    // but we can show a message
+    return of({ success: true });
   }
-
-  public listarUsuarios(): Observable<any> {
-    const promise = this.firestore.collection('users').get()
-    return from(promise).pipe(
-      map(resposta => {
-        return resposta.docs.map(doc => {
-          const user: User = doc.data() as User
-          user.uid = doc.id
-          return user
-        })
-      }),
-      catchError(error => {
-        console.error(error)
-        this.notification.showmessage("Erro ao listar usuários")
-        return EMPTY
-      })
-    )
-  }
-
-  public getUser(uid: string): Observable<any>{
-    const promise = this.firestore.collection('users').doc(uid).get()
-    return from(promise).pipe(
-      map(doc => {
-        const user: User = doc.data() as User
-        return user
-      }),
-      catchError(error => {
-        this.notification.showmessage("Erro ao buscar dados de usuário")
-        console.error(error)
-        return EMPTY
-      })
-    )
-  }
-
-  public getCurrentUser() {
-    return from(this.firebaseAuth.currentUser)
-  }
-
-  public editarUsuario(user: any){
-    const promise = this.firestore.collection('users').doc(user.uid).update(user)
-    return from(promise).pipe(
-      catchError((error) => {
-        this.notification.showmessage("Erro ao editar.")
-        console.error(error)
-        return EMPTY;
-      })
-      )
-  }
-
-  public autenticarPorEmaileSenha(user: User): Observable<any> {
-    
-    const { email, senha, displayName } = user;
-    const promise = this.firebaseAuth.signInWithEmailAndPassword(email, senha)
-
-    /*  console.log(this.token)
-     if(this.token.request_token != ''){
-       this.apiTMDB.createSession(this.token).subscribe(resposta => {
-         localStorage.setItem('session', resposta.session_id)
-         this.notification.showmessage("Bem vindo(a)!")
-         this.router.navigate(["/filmes"])     
-       })
-     }else{
-       this.apiTMDB.autenticarUsuarioPorToken().subscribe(resposta => {
-         this.token = resposta
-         window.open('https://www.themoviedb.org/authenticate/' + this.token.request_token)
-         localStorage.setItem('token', this.token.request_token)
-         
-       })
-     } */
-
-    return from(promise).pipe(
-      catchError(error => {
-        if (error.code == "auth/user-not-found") {
-          this.notification.showmessage("Usuário não cadstrado!")
-        } else if (error.code == "auth/wrong-password") {
-          this.notification.showmessage("Senha incorreta!")
-        } else {
-          this.notification.showmessage("Erro ao autenticar!")
-          console.error(error)
-        }
-        return EMPTY
-      })
-    )
-
-  }
-
-  public criarUsuarioEmaileSenha(user: any): Observable<any> {
-    const { email, senha } = user;
-    this.salvarUsuario(user)
-
-    const promise = this.firebaseAuth.createUserWithEmailAndPassword(email, senha)
-    return from(promise).pipe(
-      catchError(error => {
-        this.notification.showmessage("Erro ao cadastrar usuário!")
-        console.error(error)
-        return EMPTY
-      })
-    )
-  }
-
-  public logout() {
-    const promise = this.firebaseAuth.signOut()
-    localStorage.removeItem('uidUser');
-    localStorage.removeItem('user-name');
-    localStorage.removeItem('user-photo');
-    return from(promise)
-  }
-
 }
-

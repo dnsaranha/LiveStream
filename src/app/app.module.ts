@@ -10,18 +10,13 @@ import { ListaFilmesComponent } from './Pages/lista-filmes/lista-filmes.componen
 import { FilmeComponent } from './Pages/filme/filme.component';
 import { ListaFavoritosComponent } from './Pages/lista-favoritos/lista-favoritos.component';
 import { MaterialModule } from './material/material.module';
-import { environment } from 'src/environments/environment'
-import { AngularFireModule } from '@angular/fire/compat';
-import { AngularFireAuthModule } from '@angular/fire/compat/auth'
-import { AngularFirestoreModule } from '@angular/fire/compat/firestore';
-import { LoginComponent } from './Pages/login/login.component';
 import { HeaderComponent } from './Components/header/header.component';
-import { CadastroComponent } from './Pages/cadastro/cadastro.component';
 import { ListaAssistirDepoisComponent } from './Pages/lista-assistir-depois/lista-assistir-depois.component';
 import { CarrosselComponent } from './Components/carrossel/carrossel.component';
 import { ResenhaPipe } from './Pipes/resenha.pipe';
 import { LazyLoadImageModule } from 'ng-lazyload-image';
 import { NumberPipe } from './Pipes/number.pipe';
+import { DialogVotoComponent } from './Components/dialogs/dialog-voto/dialog-voto.component';
 
 @NgModule({
   declarations: [
@@ -29,14 +24,12 @@ import { NumberPipe } from './Pipes/number.pipe';
     ListaFilmesComponent,
     FilmeComponent,
     ListaFavoritosComponent,
-    LoginComponent,
     HeaderComponent,
-    CadastroComponent,
     ListaAssistirDepoisComponent,
     CarrosselComponent,
     ResenhaPipe,
-    NumberPipe
-
+    NumberPipe,
+    DialogVotoComponent
   ],
   imports: [
     BrowserModule,
@@ -45,15 +38,10 @@ import { NumberPipe } from './Pipes/number.pipe';
     HttpClientModule,
     FormsModule,
     MaterialModule,
-    AngularFireModule.initializeApp(environment.firebaseConfig),
-    AngularFirestoreModule,
-    AngularFireAuthModule,
     ReactiveFormsModule,
     LazyLoadImageModule,
   ],
   providers: [],
   bootstrap: [AppComponent],
-
 })
 export class AppModule { }
-
